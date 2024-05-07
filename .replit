@@ -1,0 +1,6 @@
+entrypoint = "Main.hs"
+hidden = [".ghci", "ghci_wrapper.sh"]
+modules = ["haskell-ghc9.2:v1-20230623-0b7a606"]
+
+[nix]
+channel = "stable-23_05"
