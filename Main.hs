@@ -40,7 +40,7 @@ listSumReverse n =
     i <- [0..n-1]
     solution <- listSumReverse i :: [Solution]
     return $ add (n-i) solution
-
+  
 
 foldNat :: Nat -> (a -> a) -> a -> a
 foldNat n f x = iterate f x !! n
@@ -78,9 +78,9 @@ myListSumReverse n = foldNat n fromPreviousSums [Sum []]
     (Sum solution) <- solution
     --add 0
     un
-
-
-
+    
+  
+  
 
 -- bagSumReverse :: Nat -> S.Set (MultiSet Nat)
 -- bagSumReverse n = foldNat n 
