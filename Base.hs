@@ -16,6 +16,7 @@ import Control.Monad.Trans.State.Lazy
 import Control.Monad.Trans
 import Control.Monad.Identity
 import Control.Monad.Trans.Maybe
+import Control.Monad
 
 un = undefined
 type Nat = Int
@@ -64,6 +65,13 @@ tick = do
   modify succ
   return i
 
+-- | Monadic equivalent to iterate. Note that it will not terminate, but may still be useful in the main event loop of a program, for example.
+iterateM :: forall m a b. Monad m => (a -> m a) -> a -> m [a]
+iterateM f x = sequence $ iterate @(m a) (>>= f) (return @m x)
+
+iterateMaybeM :: Monad m => (a -> m (Maybe a)) -> a -> m [a]
+iterateMaybeM f x = sequence $ iterate (>>= f) (return x)
+
 tickedM :: forall m a b. Monad m => (a-> m b) -> (a -> TickerT m b)
 tickedM = fmap @((->) a) ((tick >>) . lift)  --black magic
   `isSameAs` (((tick >>) . lift) . )
@@ -77,7 +85,7 @@ ticked f = tickedM (fmap Identity f)
 runTick :: TickerT m a -> m (a, Nat)
 runTick ticker = runStateT ticker 0
 
-brokenFarthestM :: forall a. 
+brokenFarthestM :: forall a.
   (a -> StateT Nat Maybe a) -> a -> StateT Nat Identity a
 brokenFarthestM stateF x = let
   f = fmap runStateT stateF
@@ -92,9 +100,12 @@ swapMonads :: (Traversable m, Monad n) => m (n a) -> n (m a)
 swapMonads = sequence
 
 -- farthestM :: forall m a. (MonadTrans m, Traversable (m Maybe) ) => (a -> m Maybe a) -> a -> m Identity a
+
+-- m MonadTransf
 farthestM :: forall m a. (Monad m, Traversable m) => (a -> Maybe (m a)) -> a -> m a
-farthestM f = farthest @(m a) ( fmap swapMonads(>>=(fmap swapMonads f :: a -> m (Maybe a)))) . return  --i wrote this, but i dont understand this
-  where 
+farthestM f = farthest (>>= f) . return
+--farthest @(m a) ( fmap swapMonads (>>=(fmap swapMonads f :: a -> m (Maybe a)))) . return  --i wrote this, but i dont understand this
+  where
   -- f1 :: a -> m (n a)
   heavyMonadery :: (Monad n, Traversable n, Monad m) => m (n (m a)) -> n (m a)
   heavyMonadery = fmap join . swapMonads
