@@ -1,0 +1,3 @@
+может это не надо синхронизировать
+".replit", "replit.nix", ".ghci"
+ghci_wrapper.sh

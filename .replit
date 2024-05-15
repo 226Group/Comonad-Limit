@@ -1,0 +1,18 @@
+
+hidden = [".ghci", "ghci_wrapper.sh"]
+run = "exec ghci Main.hs"
+
+# [nix]
+# channel = "stable-22_11"
+
+[languages.haskell]
+pattern = "**/*.hs"
+
+[languages.haskell.languageServer]
+start = ["haskell-language-server", "--lsp"]
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", ".ghci"]
+
+[deployment]
+run = ["sh", "-c", "exec ghci \"$@\""]
