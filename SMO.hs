@@ -2,6 +2,8 @@
 {-# HLINT ignore "Use camelCase" #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
 
 module SMO where
 import Base

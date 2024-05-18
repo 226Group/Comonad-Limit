@@ -7,9 +7,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Base where
-import SMO.Base
 import Data.List
 import Data.Maybe
 import Control.Monad.Trans.State.Lazy
@@ -46,6 +46,60 @@ mapfst f (x, y) = (f x, y)
 mapsnd = (\f (x, y) -> (x, f y)) =~= fmap -- @(a, )
 
 thanks = putStrLn "Glad to serve you!"
+
+
+(!?) :: [a] -> Nat -> Maybe a
+[] !? _ = Nothing
+(x:xs) !? 0 = Just x
+(x:xs) !? i = xs !? (i - 1)
+-- fromJust :: Maybe a -> a
+-- fromJust (Just x) = x
+toMaybe :: Bool -> a -> Maybe a
+toMaybe True x = Just x
+toMaybe False _ = Nothing
+
+filterMaybe :: (a -> Bool) -> a -> Maybe a
+filterMaybe f x = toMaybe (f x) x
+
+eqMaybe :: Eq a => a -> a -> Maybe a
+eqMaybe x = filterMaybe (== x)
+
+
+factorial :: Nat -> Nat
+factorial n = product [1..n]
+
+check :: (a -> Bool) -> String -> a -> a
+check f str x = if f x then x else error str
+
+-- data family + fundep
+class Extract a b | a -> b where
+  run :: a -> b
+run' :: forall b a. Extract a b => a -> b
+run' = run
+
+-- isTrue (Just True) = True
+-- isTrue _ = False
+
+lift2A :: Applicative m => (a -> b -> c) -> m a -> m b -> m c
+lift2A f x y = f <$> x <*> y
+
+--TODO lazy Nats
+from_N_to_List_len :: Nat -> [a] -> [Nat]
+from_N_to_List_len n xs = fst <$> zip [n..] xs
+
+enumerate :: [a] -> [(Nat, a)]
+enumerate = zip [0..]
+
+(??) :: Functor f => f (a -> b) -> a -> f b 
+infixl 1 ??
+fab ?? a = fmap ($ a) fab
+
+farthest :: (a -> Maybe a) -> a -> a
+farthest f = last . iterateMaybe f
+
+indexes :: [a] -> [(Ind, a)]
+indexes = zip [0..]
+
 -- Set a = a -> Bool
 -- Struct f a = Fix $ f a
 -- Skeleton f = Struct f ()
@@ -55,71 +109,7 @@ thanks = putStrLn "Glad to serve you!"
 toLength :: Ind -> Nat
 toLength = succ
 
--- conveyorList (a: ts@(b:_)) = Conveyor (a -> b) conveyorList ts
-type TickerT m a = StateT Nat m a
-type Ticker a = TickerT Identity a
-
-tick :: Monad m => TickerT m Nat
-tick = do
-  i <- get
-  modify succ
-  return i
-
--- | Monadic equivalent to iterate. Note that it will not terminate, but may still be useful in the main event loop of a program, for example.
-iterateM :: forall m a b. Monad m => (a -> m a) -> a -> m [a]
-iterateM f x = sequence $ iterate @(m a) (>>= f) (return @m x)
-
-iterateMaybeM :: Monad m => (a -> m (Maybe a)) -> a -> m [a]
-iterateMaybeM f x = sequence $ iterate (>>= f) (return x)
-
-tickedM :: forall m a b. Monad m => (a-> m b) -> (a -> TickerT m b)
-tickedM = fmap @((->) a) ((tick >>) . lift)  --black magic
-  `isSameAs` (((tick >>) . lift) . )
-  `isSameAs` \f x -> do
-      tick
-      lift $ f x
-
-ticked :: (a -> b) -> (a -> State Nat b)
-ticked f = tickedM (fmap Identity f)
-
-runTick :: TickerT m a -> m (a, Nat)
-runTick ticker = runStateT ticker 0
-
-brokenFarthestM :: forall a.
-  (a -> StateT Nat Maybe a) -> a -> StateT Nat Identity a
-brokenFarthestM stateF x = let
-  f = fmap runStateT stateF
-  f :: a -> Nat -> Maybe (a, Nat)
-  goalF :: a -> Maybe (Nat -> (a, Nat))
-  goalF = un
-  -- goalF x = f x
-  -- imposible
-  in un
-
-swapMonads :: (Traversable m, Monad n) => m (n a) -> n (m a)
-swapMonads = sequence
-
--- farthestM :: forall m a. (MonadTrans m, Traversable (m Maybe) ) => (a -> m Maybe a) -> a -> m Identity a
-
--- m MonadTransf
-farthestM :: forall m a. (Monad m, Traversable m) => (a -> Maybe (m a)) -> a -> m a
-farthestM f = farthest (>>= f) . return
---farthest @(m a) ( fmap swapMonads (>>=(fmap swapMonads f :: a -> m (Maybe a)))) . return  --i wrote this, but i dont understand this
-  where
-  -- f1 :: a -> m (n a)
-  heavyMonadery :: (Monad n, Traversable n, Monad m) => m (n (m a)) -> n (m a)
-  heavyMonadery = fmap join . swapMonads
-
-tickedFarthest :: (a -> Maybe a) -> a -> (a, Ind)
-tickedFarthest = flip fmap2 iterateMaybe $ swap . last . indexes
-
-farthest :: (a -> Maybe a) -> a -> a
-farthest f = last . iterateMaybe f
-
-indexes :: [a] -> [(Ind, a)]
-indexes = zip [0..]
-
-iterateMaybe, iterateMaybe' :: (a -> Maybe a) -> a -> [a]
+iterateMaybe, iterateMaybe' :: (a -> Maybe a) -> a -> [a]    --TODO isSameAs  --unfoldMaybe takeWhileJust
 iterateMaybe f x = -- strict, couse take is strict
   let tailOfNothings = iterate (>>= f) $ Just x
   in fromJust <$> take (pred $ toLength $ fromJust $ findIndex isNothing tailOfNothings) tailOfNothings

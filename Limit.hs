@@ -1,6 +1,8 @@
 {-# LANGUAGE DatatypeContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Limit where
 import Base
 import Data.List
@@ -8,35 +10,45 @@ import Data.Maybe
 
 -- TODO instance Comonad
 
--- any type? No
+-- inf list
 inf = 1000 :: Nat
 d inf = 1/fromIntegral inf -- :: RealFrac a => a
-data RealFrac a => Limit a = UnsafeMkLimit {history::[a], precision::Nat, limit::a}
+data RealFrac a => Limit a = UnsafeMkLimit {history::[a], precision::Nat, lim::a}
   deriving (Show)
 
 
 instance RealFrac a => Extract (Limit a) a where
-  run = limit  --history?
+  run = lim  --history?
 
-data Precision = Exact Nat | Max Nat
+data Precision = Exact Nat | Min Nat
   -- with Max actual precision can be lower
 -- type SeqLimit = Maybe RealFrac
 
 -- precLimitTo :: forall a. RealFrac a => Nat -> a -> [a] -> Maybe (Limit a)
+--inf list
 limit :: forall a. RealFrac a => Precision -> Maybe a -> [a] -> Maybe (Limit a)
+limit n lim xs = let
+  subsequences :: Precision -> [[a]]
+  subsequences (Exact n) = [take n . drop (n-2)]
+  subsequences (Min n) = [take i . drop (i-2) $ xs | i <- takeWhile (<=n) (2^) <$> [1..]]
+
+  allCloseTo :: RealFrac a => Maybe a -> [a] -> Maybe a
+  allCloseTo mLim xs = filterMaybe (all $ approxEq n) lim
+    where lim = fromMaybe (last xs) mLim
+
+  in (\xs -> UnsafeMkLimit xs (length xs) (fromJust $ allCloseTo lim)) find (isJust . allCloseTo lim) (subsequences n) -- <> lastSubsequnce
+
   -- precLimitTo n lim xs | length xs < n = UnsafeMkLimit xs n <$> last xs `eqMaybe` lim --need lazy nats
 precLimitTo n lim xs | isNothing $ xs !? n = UnsafeMkLimit xs n <$> last xs `eqMaybe` lim --infinite precision?
 -- data InfNat = NatInf | N Nat
-precLimitTo n lim xs = let 
-    subsequence :: [a] -> [a]
-    subsequence = take n . drop (n-2)
+precLimitTo n lim xs = let
+
   in toMaybe (all (approxEq n lim) (subsequence xs)) (UnsafeMkLimit xs n lim)
 
 minPrecLimit :: forall a. RealFrac a => Nat -> [a] -> Maybe (Limit a)
-minPrecLimit n xs = let 
+minPrecLimit n xs = let
 -- minPrecLimitTo n lim xs | isNothing $ xs !? n = last xs == lim
-    subsequences :: [[a]]
-    subsequences = [take n . drop (n-2) $ xs | n <- from_N_to_List_len 2 xs]
+
     firstConverging = find (\subsequence -> all (approxEq n $ last subsequence) subsequence ) subsequences
   in do
     firstConverging <- firstConverging
