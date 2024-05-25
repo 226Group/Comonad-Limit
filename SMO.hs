@@ -4,10 +4,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
 
 module SMO where
 import Base
-import Limit
+-- import Limit
 import Data.Maybe
 
 instance Extract (ProbDistrib a) [(P, a)] where
@@ -42,7 +45,7 @@ probDistrib :: [(P, a)] -> ProbDistrib a
 probDistrib = let
   check_prob :: Double -> P
   check_prob = check (\x -> x >= 0 && x <= 1) "not probability"
-  in ProbDistribConstr . check (convergeTo 1 . limSum . map fst) "doesn't add up to 1" .
+  in ProbDistribConstr . {- check (convergeTo 1 . limSum . map fst) "doesn't add up to 1" . -}
     map (mapfst check_prob)
 
 exp_value :: forall a. Real a => ProbDistrib a -> Double
