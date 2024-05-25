@@ -20,17 +20,29 @@ data RealFrac a => Limit a = UnsafeMkLimit {history::[a], precision::Nat, lim::a
 instance RealFrac a => Extract (Limit a) a where
   run = lim  --history?
 
-data Precision = Exact Nat | Min Nat
+type Precision = Nat
+data LimitArg = Exact Precision | Min Precision
+prec :: LimitArg -> Precision
+prec (Exact p) = p
+prec (Min p) = p
+
   -- with Max actual precision can be lower
 -- type SeqLimit = Maybe RealFrac
 
--- precLimitTo :: forall a. RealFrac a => Nat -> a -> [a] -> Maybe (Limit a)
---inf list
-limit :: forall a. RealFrac a => Precision -> Maybe a -> [a] -> Maybe (Limit a)
+-- precLimitTo :: forall a. RealFrac a => Pre -> a -> [a] -> Maybe (Limit a)
+limit :: forall a. RealFrac a => LimitArg -> Maybe a -> [a] -> Maybe (Limit a)
 limit n lim xs = let
-  subsequences :: Precision -> [[a]]
-  subsequences (Exact n) = [take n . drop (n-2)]
-  subsequences (Min n) = [take i . drop (i-2) $ xs | i <- takeWhile (<=n) (2^) <$> [1..]]
+  subsequence :: Precision -> [a] -> [a]
+  subsequence n = take half . drop otherHalf
+    where 
+      half = n `div` 2
+      otherHalf = half + n `mod` 2
+
+  subsequences :: LimitArg -> [[a]]
+  subsequences (Exact n) = subsequence n xs
+  subsequences (Min n) = [subsequence i xs | i <- takeWhile (<=n) (2^) <$> [1..]]
+  lastSeq :: LimitArg -> [a] -> [a]
+  lastSeq p xs = 
 
   allCloseTo :: RealFrac a => Maybe a -> [a] -> Maybe a
   allCloseTo mLim xs = filterMaybe (all $ approxEq n) lim
@@ -90,3 +102,35 @@ instance RealFrac a => Eq (Limit a) where
 
 limSum :: (RealFrac a) => [a] -> Limit a
 limSum xs = MkLimit [sum $ take n xs | n <- [1..]] -- couldn't use length
+
+
+
+
+
+diverge :: (Ord a, Num a) => a -> [a] -> a
+diverge eps (a:b:xs) 
+    | abs (a - b) <= eps    = a
+    | otherwise             = diverge eps (b:xs)
+
+
+diff :: (Ord a, Fractional a) => a -> a -> (a -> a) -> a -> a
+diff h0 eps f x = diverge eps $ map (easydiff f x) $ iterate (/2) h0
+    where easydiff f x h = (f (x + h) - f x) / h
+
+
+int :: (Ord a, Fractional a) => a -> (a -> a) -> a -> a -> a
+int eps f a b = diverge eps $ integrate f a b
+
+integrate :: Fractional a => (a -> a) -> a -> a -> [a]
+integrate f a b = integ f a b (f a) (f b)
+    where integ f a b fa fb = (fa+fb)*(b-a)/2 :
+                zipWith (+) (integ f a m fa fm) 
+                            (integ f m b fm fb)
+                where m  = (a + b)/2
+                      fm = f m 
+
+
+inf_int :: (Fractional a, Enum a, Ord a) => a
+inf_int = diverge 0.0001 [int 0.0001 (\x -> 1/x^2) 1 n | n <- [1..]]
+-- площадь под кривой 1/x^2 на отрезке [1, плюс бесконечность] = 1
+-- чтд
