@@ -84,8 +84,10 @@ lift2A :: Applicative m => (a -> b -> c) -> m a -> m b -> m c
 lift2A f x y = f <$> x <*> y
 
 --TODO lazy Nats
-from_N_to_List_len :: Nat -> [a] -> [Nat]
-from_N_to_List_len n xs = fst <$> zip [n..] xs
+compareLength :: Nat -> [a] -> Ordering
+compareLength n xs | isJust $ xs !? (n+1) = LT
+compareLength n xs | isJust $ xs !? n = EQ
+compareLength n xs = GT
 
 enumerate :: [a] -> [(Nat, a)]
 enumerate = zip [0..]
